@@ -1,0 +1,11 @@
+{
+  "cookies": [
+    { "name": "JSESSIONID", "value": "ajax:REPLACE_WITH_YOUR_SESSION", "domain": ".www.linkedin.com", "path": "/" },
+    { "name": "li_at", "value": "REPLACE_WITH_YOUR_SESSION", "domain": ".www.linkedin.com", "path": "/" },
+    { "name": "bcookie", "value": "v=2&REPLACE_BROWSER_ID", "domain": ".linkedin.com", "path": "/" },
+    { "name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/" },
+    { "name": "bscookie", "value": "v=1&REPLACE_SESSION", "domain": ".www.linkedin.com", "path": "/" },
+    { "name": "lidc", "value": "b=REPLACE;v=2", "domain": ".linkedin.com", "path": "/" }
+  ],
+  "origins": []
+}

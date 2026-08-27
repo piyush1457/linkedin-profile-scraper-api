@@ -1,0 +1,30 @@
+{
+  "name": "linkedin-profile-api",
+  "version": "1.0.0",
+  "description": "Public HTTPS API that accepts a LinkedIn profile URL and returns structured JSON",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "cookies": "node scripts/apply-cookies.js",
+    "apply-cookies": "node scripts/apply-cookies.js",
+    "test:direct": "node scripts/test-direct.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:api": "node scripts/test-api.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
+  }
+}
