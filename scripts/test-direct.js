@@ -30,7 +30,7 @@ async function main() {
   console.log(`fullProfile bytes: ${JSON.stringify(fullProfile).length}`);
 
   const sections = await voyager.fetchAllSections(storageState, resolved.memberId);
-  const profile = parseProfile(extractEntities(fullProfile));
+  const profile = parseProfile(extractEntities(fullProfile), resolved.memberId);
   const sectionData = normalizeSections(sections);
 
   if (sectionData.experience.length) profile.experience = sectionData.experience;

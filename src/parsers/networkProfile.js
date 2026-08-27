@@ -155,10 +155,16 @@ function resolveCurrentCompany(positions, headline) {
   return current[0].company;
 }
 
-function parseProfile(included) {
-  const entity = findByType(included, "identity.profile.Profile").find(
+function parseProfile(included, memberId) {
+  const candidates = findByType(included, "identity.profile.Profile").filter(
     (i) => i.firstName
   );
+  let entity = null;
+  if (memberId) {
+    const targetUrn = `urn:li:fsd_profile:${memberId}`;
+    entity = candidates.find((i) => i.entityUrn === targetUrn) || null;
+  }
+  if (!entity) entity = candidates[0] || null;
   if (!entity) return null;
 
   const follows = findByType(included, "FollowingState")[0] || null;

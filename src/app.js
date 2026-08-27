@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const profileRoutes = require("./routes/profile");
 const healthRoutes = require("./routes/health");
 const { rateLimit } = require("./middleware/rateLimit");
@@ -10,8 +11,10 @@ const app = express();
 app.set("trust proxy", 1);
 
 app.use(express.json());
-app.use(rateLimit());
+app.use("/api", rateLimit());
 app.use(timeout());
+
+app.use(express.static(path.join(__dirname, "../public")));
 
 app.use(healthRoutes);
 app.use(profileRoutes);

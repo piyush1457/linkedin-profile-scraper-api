@@ -2,7 +2,9 @@
 
 ## Live Demo
 
-**Base URL:** `https://your-deployment-url.onrender.com`
+- **Demo UI:** `https://your-deployment-url.onrender.com` — paste any LinkedIn profile URL (or click a sample) to see a summary card + raw JSON
+- **Direct API:** `https://your-deployment-url.onrender.com/api/profile?url=https://www.linkedin.com/in/satyanadella/`
+- **Health:** `https://your-deployment-url.onrender.com/health`
 
 ## Overview
 

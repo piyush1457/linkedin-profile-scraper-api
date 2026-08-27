@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LinkedIn Profile API — Demo</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --panel-2: #f1f3f5;
+    --border: #e3e6ea;
+    --text: #16181d;
+    --muted: #6f7680;
+    --accent: #059669;
+    --accent-2: #10b981;
+    --accent-deep: #047857;
+    --ok: #059669;
+    --warn: #d97706;
+    --err: #dc2626;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(20, 24, 30, .05), 0 8px 24px rgba(20, 24, 30, .06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { text-align: center; padding: 12px 0 6px; }
+  header h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -.02em; }
+  header .tag { color: var(--muted); font-size: 14px; margin: 0; }
+  header .tag b {
+    display: inline-block; color: var(--accent-deep);
+    background: rgba(5, 150, 105, .1); border: 1px solid rgba(5, 150, 105, .25);
+    border-radius: 999px; padding: 3px 10px; font-weight: 700; margin-left: 4px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 18px;
+    box-shadow: var(--shadow);
+  }
+  .demo { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] {
+    flex: 1 1 320px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 11px 14px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input[type=url]:focus {
+    border-color: var(--accent-2);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, .15);
+  }
+  input[type=url]::placeholder { color: #a3aab4; }
+  button {
+    background: linear-gradient(180deg, var(--accent-2), var(--accent));
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(4, 120, 87, .3);
+    transition: filter .15s, transform .1s;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  button.ghost {
+    background: #fff;
+    border: 1px solid var(--border);
+    font-weight: 500;
+    color: var(--text);
+    box-shadow: none;
+  }
+  button.ghost:hover { border-color: var(--accent-2); color: var(--accent-deep); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  .chips { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, box-shadow .15s;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent-2); box-shadow: 0 2px 8px rgba(20, 24, 30, .08); }
+  .chip .dot { color: var(--accent); margin-right: 4px; }
+
+  .hidden { display: none; }
+  #status { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  #status .spin {
+    display: inline-block; width: 13px; height: 13px;
+    border: 2px solid #dfe3e8; border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error { display: flex; gap: 10px; align-items: flex-start; }
+  .error .badge {
+    background: rgba(220, 38, 38, .08); color: var(--err);
+    border: 1px solid rgba(220, 38, 38, .3); border-radius: 6px;
+    padding: 2px 8px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .error p { margin: 0; font-size: 14px; color: var(--text); line-height: 1.5; }
+  .error small { display: block; margin-top: 4px; color: var(--muted); }
+
+  .profile-top { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .avatar {
+    width: 76px; height: 76px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff; font-size: 30px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, .25);
+    overflow: hidden; user-select: none;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-meta { flex: 1 1 300px; }
+  .profile-meta h2 { margin: 0 0 4px; font-size: 23px; letter-spacing: -.01em; }
+  .profile-meta .headline { color: var(--accent-deep); font-size: 15px; margin: 0 0 6px; }
+  .profile-meta .loc { color: var(--muted); font-size: 13px; margin: 0; }
+  .followers { margin-top: 6px; font-size: 13px; color: var(--muted); }
+  .followers b { color: var(--text); font-weight: 700; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 18px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 8px; text-align: center; }
+  .stat .n {
+    font-size: 21px; font-weight: 800; letter-spacing: -.02em;
+    background: linear-gradient(180deg, var(--accent-2), var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 3px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .col h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 6px; }
+  .item { padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .item:last-child { border-bottom: none; }
+  .item .t { font-weight: 600; font-size: 14px; }
+  .item .s { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .item .range { color: var(--accent-deep); font-size: 12px; margin-top: 2px; }
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; }
+  .about-text { color: #3c434d; font-size: 14px; line-height: 1.65; white-space: pre-wrap; margin-top: 16px; }
+
+  .meta-line { color: var(--muted); font-size: 12px; margin-top: 16px; word-break: break-all; }
+  .meta-line b { color: var(--text); font-weight: 600; }
+
+  .raw { margin-top: 20px; }
+  .raw summary { cursor: pointer; color: var(--accent-deep); font-size: 14px; font-weight: 600; user-select: none; }
+  .raw summary:hover { color: var(--accent); }
+  .raw-btns { display: flex; gap: 8px; margin-top: 10px; }
+  pre.json {
+    background: #16181d; border: 1px solid #252a32; border-radius: 10px;
+    padding: 15px; overflow: auto; max-height: 420px; font-size: 12.5px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    line-height: 1.55; color: #d7f3e6; margin: 0;
+  }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 11px 18px; border-radius: 10px; font-size: 13px; opacity: 0; pointer-events: none;
+    box-shadow: 0 8px 30px rgba(20, 24, 30, .18); transition: opacity .25s; z-index: 10;
+  }
+  #toast.show { opacity: 1; }
+  footer { text-align: center; margin-top: 30px; color: var(--muted); font-size: 12px; }
+  footer a { color: var(--accent-deep); text-decoration: none; font-weight: 500; }
+  footer a:hover { color: var(--accent); text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>LinkedIn Profile API</h1>
+    <p class="tag">Browserless · reverse-engineered Voyager endpoints · <b>GET /api/profile?url=…</b></p>
+  </header>
+
+  <section class="card">
+    <div class="demo">
+      <input type="url" id="url" placeholder="https://www.linkedin.com/in/padamkataria/"
+             value="https://www.linkedin.com/in/padamkataria/" />
+      <button id="fetch">Fetch profile</button>
+    </div>
+    <div class="chips">
+      <span class="chip" data-url="https://www.linkedin.com/in/piyush-kumar-sodhi-104b6b307/"><span class="dot">●</span> Piyush Kumar Sodhi</span>
+      <span class="chip" data-url="https://www.linkedin.com/in/padamkataria/"><span class="dot">●</span> Padam Kataria</span>
+      <span class="chip" data-url="https://www.linkedin.com/in/meetcshah19/"><span class="dot">●</span> Meet Shah</span>
+      <span class="chip" data-url="https://www.linkedin.com/in/sp35/"><span class="dot">●</span> Shubham P.</span>
+      <span class="chip" data-url="https://www.linkedin.com/in/heli-v-48b726106/"><span class="dot">●</span> Heli V.</span>
+    </div>
+    <div id="status" class="hidden"></div>
+  </section>
+
+  <section id="error" class="card error hidden"></section>
+
+  <section id="result" class="hidden">
+    <div class="card">
+      <div class="profile-top">
+        <div class="avatar" id="avatar"></div>
+        <div class="profile-meta">
+          <h2 id="name"></h2>
+          <p class="headline" id="headline"></p>
+          <p class="loc" id="loc"></p>
+          <p class="followers" id="followers"></p>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+      <p class="about-text hidden" id="about"></p>
+      <div class="grid">
+        <div class="col">
+          <h3 id="exp-title">Experience</h3>
+          <div id="exp"></div>
+        </div>
+        <div class="col">
+          <h3 id="edu-title">Education</h3>
+          <div id="edu"></div>
+        </div>
+      </div>
+      <div class="meta-line" id="meta"></div>
+      <details class="raw">
+        <summary>View raw JSON response</summary>
+        <div class="raw-btns">
+          <button class="ghost" id="copy">Copy JSON</button>
+        </div>
+        <pre class="json" id="raw"></pre>
+      </details>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/health" target="_blank">/health</a> ·
+    <a href="https://github.com/piyush1457/linkedin-profile-scraper-api" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://raw.githubusercontent.com/piyush1457/linkedin-profile-scraper-api/main/docs/reverse-engineering.md" target="_blank" rel="noopener">Reverse-engineering notes</a>
+  </footer>
+</div>
+<div id="toast"></div>
+
+<script>
+  var SAMPLES = null;
+  var lastPayload = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function fmtFollowers(v) {
+    if (!v) return null;
+    try { return new Intl.NumberFormat("en-US").format(Number(v)); } catch (e) { return v; }
+  }
+
+  function initials(name) {
+    if (!name) return "?";
+    return name.split(/\s+/).slice(0, 2).map(function (w) { return w[0] || ""; }).join("").toUpperCase();
+  }
+
+  function statusShow(text, spin) {
+    var el = $("status");
+    el.classList.remove("hidden");
+    el.innerHTML = (spin ? '<span class="spin"></span>' : "") + text;
+  }
+  function statusHide() { $("status").classList.add("hidden"); }
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+
+  function setError(code, message, hint) {
+    $("result").classList.add("hidden");
+    var el = $("error");
+    el.classList.remove("hidden");
+    el.innerHTML = '<div class="badge">' + (code || "ERROR") + "</div><div><p>" +
+      (message || "Something went wrong") + (hint ? "<small>" + hint + "</small>" : "") + "</p></div>";
+  }
+
+  function hideError() { $("error").classList.add("hidden"); }
+
+  function friendlyError(code) {
+    switch (code) {
+      case "LOGIN_WALL":
+        return { code: code, message: "LinkedIn rejected the session (expired/revoked).", hint: "The API operator needs to refresh the session cookie (npm run cookies)." };
+      case "SERVER_CONFIGURATION_ERROR":
+        return { code: code, message: "The API is not configured with a LinkedIn session yet.", hint: "Set LINKEDIN_COOKIE_HEADER in the deploy environment." };
+      case "RATE_LIMITED":
+        return { code: code, message: "Rate limited (max 10 requests/min/IP).", hint: "Wait a moment and try again." };
+      case "INVALID_URL":
+        return { code: code, message: "Invalid LinkedIn profile URL.", hint: "Use a URL like https://www.linkedin.com/in/username/." };
+      case "REQUEST_TIMEOUT":
+        return { code: code, message: "The scrape took too long and timed out.", hint: "Try again in a moment." };
+      case "SCRAPE_FAILED":
+        return { code: code, message: "LinkedIn's internal API refused the request.", hint: "This is usually transient — try again." };
+      default:
+        return { code: code, message: "Request failed.", hint: null };
+    }
+  }
+
+  function statHtml(n, label) {
+    return '<div class="stat"><div class="n">' + n + '</div><div class="l">' + label + "</div></div>";
+  }
+
+  function expItem(e) {
+    var out = '<div class="item"><div class="t">' + (e.title || "—");
+    if (e.company) out += " <span class='s'>· " + e.company + "</span>";
+    out += "</div>";
+    if (e.duration) out += '<div class="range">' + e.duration + "</div>";
+    if (e.location) out += '<div class="s">' + e.location + "</div>";
+    return out + "</div>";
+  }
+
+  function eduItem(e) {
+    var label = [e.degree, e.field].filter(Boolean).join(" · ") || "—";
+    var out = '<div class="item"><div class="t">' + label;
+    if (e.school) out += " <span class='s'>· " + e.school + "</span>";
+    out += "</div>";
+    if (e.duration) out += '<div class="range">' + e.duration + "</div>";
+    return out + "</div>";
+  }
+
+  function listHtml(items, fn) {
+    if (!items || !items.length) return '<div class="empty">None found</div>';
+    return items.map(fn).join("");
+  }
+
+  function render(profile, meta) {
+    hideError();
+    $("result").classList.remove("hidden");
+
+    var av = $("avatar");
+    av.innerHTML = "";
+    if (profile.profileImageUrl) {
+      var img = document.createElement("img");
+      img.src = profile.profileImageUrl;
+      img.alt = profile.name || "";
+      av.appendChild(img);
+    } else {
+      av.textContent = initials(profile.name);
+    }
+
+    $("name").textContent = profile.name || "—";
+    $("headline").textContent = profile.headline || "";
+    $("loc").textContent = profile.location || "";
+    var f = fmtFollowers(profile.followers);
+    $("followers").innerHTML = f ? "<b>" + f + "</b> followers" : "";
+
+    if (profile.about) {
+      var about = $("about");
+      about.textContent = profile.about;
+      about.classList.remove("hidden");
+    } else {
+      $("about").classList.add("hidden");
+    }
+
+    $("stats").innerHTML =
+      statHtml(profile.experience ? profile.experience.length : 0, "Experience") +
+      statHtml(profile.education ? profile.education.length : 0, "Education") +
+      statHtml(profile.skills ? profile.skills.length : 0, "Skills") +
+      statHtml(profile.certifications ? profile.certifications.length : 0, "Certifications") +
+      statHtml(profile.languages ? profile.languages.length : 0, "Languages");
+
+    $("exp-title").textContent = "Experience (" + (profile.experience ? profile.experience.length : 0) + ")";
+    $("exp").innerHTML = listHtml(profile.experience, expItem);
+    $("edu-title").textContent = "Education (" + (profile.education ? profile.education.length : 0) + ")";
+    $("edu").innerHTML = listHtml(profile.education, eduItem);
+
+    $("meta").innerHTML = "<b>source:</b> " + (meta.sourceUrl || "—") +
+      " &nbsp;|&nbsp; <b>cached:</b> " + (meta.cached ? "yes" : "no") +
+      (meta.scrapedAt ? " &nbsp;|&nbsp; <b>scrapedAt:</b> " + new Date(meta.scrapedAt).toLocaleString() : "");
+
+    $("raw").textContent = JSON.stringify(lastPayload, null, 2);
+    toast("Loaded " + (meta.cached ? "from cache" : "live from LinkedIn"));
+  }
+
+  async function fetchProfile(url) {
+    hideError();
+    $("result").classList.add("hidden");
+    var btn = $("fetch");
+    btn.disabled = true;
+    btn.textContent = "Fetching…";
+    statusShow("Fetching profile from LinkedIn…", true);
+
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 60000);
+
+    try {
+      var res = await fetch("/api/profile?url=" + encodeURIComponent(url), {
+        signal: controller.signal,
+        headers: { "Accept": "application/json" }
+      });
+      var data = await res.json();
+      if (res.status === 429) data = { success: false, profile: null, meta: {}, error: { code: "RATE_LIMITED" } };
+      lastPayload = data;
+
+      if (data.success && data.profile) {
+        render(data.profile, data.meta || {});
+      } else {
+        var e = data.error || {};
+        var f = friendlyError(e.code);
+        setError(f.code, e.message || f.message, f.hint);
+        if (data.meta && data.meta.sourceUrl) {
+          $("meta").textContent = "source: " + data.meta.sourceUrl;
+        }
+      }
+    } catch (err) {
+      var msg = (err && err.name === "AbortError")
+        ? "Request timed out after 60s."
+        : "Network error — " + (err && err.message ? err.message : "unknown");
+      setError("NETWORK", msg, "Check that the API is reachable, then retry.");
+    } finally {
+      clearTimeout(timer);
+      btn.disabled = false;
+      btn.textContent = "Fetch profile";
+      statusHide();
+    }
+  }
+
+  $("fetch").addEventListener("click", function () { fetchProfile($("url").value.trim()); });
+  $("url").addEventListener("keydown", function (ev) { if (ev.key === "Enter") fetchProfile($("url").value.trim()); });
+  document.querySelectorAll(".chip").forEach(function (c) {
+    c.addEventListener("click", function () { $("url").value = c.dataset.url; fetchProfile(c.dataset.url); });
+  });
+  $("copy").addEventListener("click", function () {
+    var text = $("raw").textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("JSON copied"); });
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); toast("JSON copied"); } catch (e) { toast("Copy failed"); }
+      document.body.removeChild(ta);
+    }
+  });
+</script>
+</body>
+</html>

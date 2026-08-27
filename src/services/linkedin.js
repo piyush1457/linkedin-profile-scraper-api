@@ -54,7 +54,7 @@ async function scrapeProfile(profileUrl, storageState) {
 
   const sections = await voyager.fetchAllSections(storageState, memberId, profileUrl);
 
-  const networkProfile = parseProfile(extractEntities(fullProfile));
+  const networkProfile = parseProfile(extractEntities(fullProfile), memberId);
   if (!networkProfile) {
     log.warn("Voyager: no profile entity found in response");
     return { state: "NOT_FOUND", profile: null };

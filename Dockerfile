@@ -7,6 +7,7 @@ RUN npm ci --omit=dev
 
 COPY src/ ./src/
 COPY scripts/ ./scripts/
+COPY public/ ./public/
 
 ENV NODE_ENV=production
 

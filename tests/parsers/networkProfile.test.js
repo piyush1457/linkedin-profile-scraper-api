@@ -70,6 +70,27 @@ describe("networkProfile.parseProfile", () => {
   it("returns null when no profile entity present", () => {
     expect(parseProfile([])).toBeNull();
   });
+
+  it("picks the profile entity matching memberId when others are present", () => {
+    const included = [
+      ...fullProfileFixture.included,
+      {
+        entityUrn: "urn:li:fsd_profile:OTHER_MEMBER",
+        $type: "com.linkedin.voyager.dash.identity.profile.Profile",
+        firstName: "Jay",
+        multiLocaleLastName: { en_US: "Kamat" },
+        headline: "ECE MASc student at University of Toronto",
+      },
+    ];
+    const memberId = "OTHER_MEMBER";
+    const profile = parseProfile(included, memberId);
+    expect(profile.name).toBe("Jay Kamat");
+  });
+
+  it("falls back to first profile entity when memberId has no match", () => {
+    const profile = parseProfile(fullProfileFixture.included, "NO_SUCH_MEMBER");
+    expect(profile.name).toBe("Satya Nadella");
+  });
 });
 
 describe("networkProfile.normalizeSections", () => {
