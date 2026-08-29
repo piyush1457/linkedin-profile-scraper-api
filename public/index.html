@@ -253,6 +253,7 @@
 <script>
   var SAMPLES = null;
   var lastPayload = null;
+  var reqSeq = 0;
 
   function $(id) { return document.getElementById(id); }
 
@@ -386,6 +387,7 @@
   }
 
   async function fetchProfile(url) {
+    var myReq = ++reqSeq;
     hideError();
     $("result").classList.add("hidden");
     var btn = $("fetch");
@@ -402,6 +404,8 @@
         headers: { "Accept": "application/json" }
       });
       var data = await res.json();
+      if (myReq !== reqSeq) return;
+
       if (res.status === 429) data = { success: false, profile: null, meta: {}, error: { code: "RATE_LIMITED" } };
       lastPayload = data;
 
@@ -416,11 +420,13 @@
         }
       }
     } catch (err) {
+      if (myReq !== reqSeq) return;
       var msg = (err && err.name === "AbortError")
         ? "Request timed out after 60s."
         : "Network error — " + (err && err.message ? err.message : "unknown");
       setError("NETWORK", msg, "Check that the API is reachable, then retry.");
     } finally {
+      if (myReq !== reqSeq) return;
       clearTimeout(timer);
       btn.disabled = false;
       btn.textContent = "Fetch profile";
