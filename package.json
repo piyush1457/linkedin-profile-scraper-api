@@ -8,6 +8,7 @@
     "dev": "node --watch src/server.js",
     "cookies": "node scripts/apply-cookies.js",
     "apply-cookies": "node scripts/apply-cookies.js",
+    "keepalive": "node scripts/keepalive.js",
     "test:direct": "node scripts/test-direct.js",
     "test": "vitest run",
     "test:watch": "vitest",

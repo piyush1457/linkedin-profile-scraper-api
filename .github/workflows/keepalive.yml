@@ -1,0 +1,17 @@
+name: Render Keepalive
+
+on:
+  schedule:
+    # Every 10 minutes - under Render's ~15 minute idle spin-down
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the free Render instance
+        env:
+          HEALTH_URL: ${{ vars.KEEPALIVE_URL || 'https://linkedin-profile-scraper-api-gg5p.onrender.com/health' }}
+        run: curl -sS -o /dev/null -m 90 -w "HTTP %{http_code} | total %{time_total}s | wake %{time_starttransfer}s\n" "$HEALTH_URL"

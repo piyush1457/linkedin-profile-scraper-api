@@ -2,9 +2,9 @@
 
 ## Live Demo
 
-- **Demo UI:** `https://your-deployment-url.onrender.com` — paste any LinkedIn profile URL (or click a sample) to see a summary card + raw JSON
-- **Direct API:** `https://your-deployment-url.onrender.com/api/profile?url=https://www.linkedin.com/in/satyanadella/`
-- **Health:** `https://your-deployment-url.onrender.com/health`
+- **Demo UI:** `https://linkedin-profile-scraper-api-gg5p.onrender.com` — paste any LinkedIn profile URL (or click a sample) to see a summary card + raw JSON
+- **Direct API:** `https://linkedin-profile-scraper-api-gg5p.onrender.com/api/profile?url=https://www.linkedin.com/in/padamkataria/`
+- **Health:** `https://linkedin-profile-scraper-api-gg5p.onrender.com/health`
 
 ## Overview
 
@@ -293,6 +293,15 @@ docker run -p 3000:3000 -e LINKEDIN_COOKIE_HEADER="JSESSIONID=ajax:...; li_at=AQ
 3. Build: `npm install`
 4. Start: `npm start`
 5. Set env: `LINKEDIN_COOKIE_HEADER` with your pasted `Cookie:` header (or `LINKEDIN_STORAGE_STATE` with `storageState.json` contents)
+
+### Keeping a free instance awake
+
+Free tiers (Render/Railway) spin down after ~15 min of inactivity, delaying the next request. Give it an external heartbeat:
+- **GitHub Actions (free, no extra account):** push `.github/workflows/keepalive.yml`; it pings `/health` every 10 minutes. Override the URL with a repo variable `KEEPALIVE_URL`. (Public repo = unlimited minutes; private = 2,000 free minutes/mo → ~2% used by a 10-min schedule.)
+- **`scripts/keepalive.js`** (standalone, for a Render cron / local scheduler): `npm run keepalive -- --url https://your-app.onrender.com/health --interval 600`.
+- **Uptime monitor:** cron-job.org, UptimeRobot, or Kaffeine pointing at `/health` every 10 minutes.
+
+Use `/health` — it never touches LinkedIn, so pings won't burn session credits or trigger rate limiting.
 
 ## Known Limitations
 
