@@ -128,14 +128,27 @@ function createCookieJar(storageState) {
 }
 
 let activeJar = null;
+let activeFingerprint = null;
+
+function fingerprint(storageState) {
+  const cookies = filterLinkedInCookies(storageState);
+  const liAt = cookies.find((c) => c.name === "li_at")?.value || "";
+  const jsession = cookies.find((c) => c.name === "JSESSIONID")?.value || "";
+  return `${liAt.slice(0, 32)}|${jsession.slice(0, 32)}|${cookies.length}`;
+}
 
 function resetJar(storageState) {
   activeJar = createCookieJar(storageState);
+  activeFingerprint = fingerprint(storageState);
   return activeJar;
 }
 
 function getSession(storageState) {
-  if (!activeJar) activeJar = createCookieJar(storageState);
+  const fp = fingerprint(storageState);
+  if (!activeJar || activeFingerprint !== fp) {
+    activeJar = createCookieJar(storageState);
+    activeFingerprint = fp;
+  }
 
   const storedCsrf = getCsrfToken(storageState);
   const liveJsession = activeJar.get("JSESSIONID");

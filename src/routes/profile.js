@@ -44,6 +44,10 @@ router.get("/api/profile", async (req, res) => {
     const result = await getProfile(validation.normalized, storageState);
     const httpStatus = result.httpStatus || (result.success ? 200 : 502);
     delete result.httpStatus;
+    // Surface session hint when auth fails so operator knows to refresh cookies
+    if (result.error && (result.error.code === "AUTHENTICATION_REQUIRED" || result.error.code === "CHALLENGE_DETECTED")) {
+      result.error.hint = "Session expired or challenged — refresh LINKEDIN_COOKIE_HEADER (see README Authentication Setup).";
+    }
     res.status(httpStatus).json(result);
   } catch (err) {
     res.status(500).json({

@@ -298,19 +298,24 @@
   function friendlyError(code) {
     switch (code) {
       case "LOGIN_WALL":
-        return { code: code, message: "LinkedIn rejected the session (expired/revoked).", hint: "The API operator needs to refresh the session cookie (npm run cookies)." };
+      case "AUTHENTICATION_REQUIRED":
+        return { code: code, message: "LinkedIn rejected the session (expired/revoked). The API is not authenticated.", hint: "Fix: on the server, re-capture a fresh LinkedIn Cookie header and set LINKEDIN_COOKIE_HEADER (or run npm run cookies). Then redeploy / restart." };
+      case "PROFILE_NOT_FOUND":
+        return { code: code, message: "Profile not found or not visible to the authenticated account.", hint: "Check the URL spelling, or verify the profile is public / visible to the throwaway account." };
+      case "CHALLENGE_DETECTED":
+        return { code: code, message: "LinkedIn showed a security challenge / CAPTCHA.", hint: "Wait a few minutes, solve the challenge in the throwaway account's browser, then refresh the session cookies." };
       case "SERVER_CONFIGURATION_ERROR":
         return { code: code, message: "The API is not configured with a LinkedIn session yet.", hint: "Set LINKEDIN_COOKIE_HEADER in the deploy environment." };
       case "RATE_LIMITED":
-        return { code: code, message: "Rate limited (max 10 requests/min/IP).", hint: "Wait a moment and try again." };
+        return { code: code, message: "Rate limited — LinkedIn or the API throttled the request (max 10 req/min/IP).", hint: "Wait a moment and try again." };
       case "INVALID_URL":
         return { code: code, message: "Invalid LinkedIn profile URL.", hint: "Use a URL like https://www.linkedin.com/in/username/." };
       case "REQUEST_TIMEOUT":
         return { code: code, message: "The scrape took too long and timed out.", hint: "Try again in a moment." };
       case "SCRAPE_FAILED":
-        return { code: code, message: "LinkedIn's internal API refused the request.", hint: "This is usually transient — try again." };
+        return { code: code, message: "LinkedIn's internal API refused the request.", hint: "This is usually a transient Voyager error or stale session — try again; if it persists, refresh cookies." };
       default:
-        return { code: code, message: "Request failed.", hint: null };
+        return { code: code || "ERROR", message: "Request failed.", hint: null };
     }
   }
 

@@ -9,17 +9,26 @@ function getPublicIdentifier(profileUrl) {
 
 function mapVoyagerError(err) {
   if (err instanceof voyager.VoyagerError) {
-    const message = err.message;
-    if (message === "CHALLENGE_DETECTED") return "CHALLENGE";
+    const message = String(err.message || "");
+    if (message === "CHALLENGE_DETECTED" || message.includes("CHALLENGE")) return "CHALLENGE";
     if (message === "PROFILE_NOT_FOUND") return "NOT_FOUND";
     if (message === "RATE_LIMITED") return "RATE_LIMITED";
     if (
-      (err.statusCode === 401 || err.statusCode === 403) &&
-      message === "AUTHENTICATION_REQUIRED"
+      message === "AUTHENTICATION_REQUIRED" ||
+      message.includes("AUTHENTICATION_REQUIRED") ||
+      message.includes("No valid LinkedIn session")
     ) {
       return "LOGIN_WALL";
     }
+    if (err.statusCode === 401 || err.statusCode === 403) {
+      return "LOGIN_WALL";
+    }
     return "SCRAPE_FAILED";
+  }
+  // Network / timeout errors that look like auth failures
+  const msg = String(err?.message || "");
+  if (msg.includes("AUTHENTICATION_REQUIRED") || msg.includes("CHALLENGE_DETECTED")) {
+    return msg.includes("CHALLENGE") ? "CHALLENGE" : "LOGIN_WALL";
   }
   return "SCRAPE_FAILED";
 }
@@ -46,13 +55,25 @@ async function scrapeProfile(profileUrl, storageState) {
   const { memberId, followers } = resolved;
   log.info("Voyager: resolved memberId", { memberId: memberId.slice(0, 8) + "...", publicIdentifier });
 
-  const fullProfile = await voyager.fetchFullProfile(storageState, memberId, profileUrl);
+  let fullProfile;
+  try {
+    fullProfile = await voyager.fetchFullProfile(storageState, memberId, profileUrl);
+  } catch (err) {
+    log.warn("Voyager: full profile fetch threw", { memberId: memberId.slice(0, 8), error: err.message });
+    return { state: mapVoyagerError(err), profile: null };
+  }
   if (!fullProfile) {
     log.warn("Voyager: full profile fetch failed", { memberId: memberId.slice(0, 8) });
     return { state: "SCRAPE_FAILED", profile: null };
   }
 
-  const sections = await voyager.fetchAllSections(storageState, memberId, profileUrl);
+  let sections;
+  try {
+    sections = await voyager.fetchAllSections(storageState, memberId, profileUrl);
+  } catch (err) {
+    log.warn("Voyager: sections fetch threw", { error: err.message });
+    return { state: mapVoyagerError(err), profile: null };
+  }
 
   const networkProfile = parseProfile(extractEntities(fullProfile), memberId);
   if (!networkProfile) {

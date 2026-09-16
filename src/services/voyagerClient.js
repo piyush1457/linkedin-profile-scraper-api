@@ -65,7 +65,7 @@ function buildApiHeaders(session, referer) {
 async function apiFetch(storageState, path, { method = "GET", body = null, referer = null } = {}) {
   const session = getSession(storageState);
   if (!session.valid) {
-    throw new VoyagerError(401, "No valid LinkedIn session (cookies/CSRF missing)");
+    throw new VoyagerError(401, "AUTHENTICATION_REQUIRED");
   }
 
   let url = `${BASE_URL}${path}`;
@@ -135,7 +135,16 @@ function isChallengeBody(text) {
 }
 
 function assertOk(res, context) {
-  if (res.status === 200) return;
+  if (res.status === 200) {
+    // LinkedIn sometimes returns 200 with a login wall / challenge HTML instead of JSON
+    if (!res.parsed && isChallengeBody(res.raw)) {
+      throw new VoyagerError(403, "CHALLENGE_DETECTED");
+    }
+    if (!res.parsed && res.raw && res.raw.length < 800 && /login|authwall|voyager.*error/i.test(res.raw)) {
+      throw new VoyagerError(401, "AUTHENTICATION_REQUIRED");
+    }
+    return;
+  }
   log.warn("Voyager non-200", { context, status: res.status });
   if (res.status === 401 || res.status === 403) {
     throw new VoyagerError(res.status, isChallengeBody(res.raw) ? "CHALLENGE_DETECTED" : "AUTHENTICATION_REQUIRED");
@@ -194,7 +203,17 @@ async function resolveMemberId(storageState, publicIdentifier, referer) {
     const match = bodyStr.match(/urn:li:fsd_profile:([A-Za-z0-9_-]{10,})/);
     if (match) memberId = match[1];
   }
-  if (!memberId) return null;
+  if (!memberId) {
+    // 200 with no memberId: distinguish real 404 vs expired session.
+    // A valid session for a non-existent vanityName gets 404 (already handled by assertOk).
+    // A 200 with empty included / tiny payload is almost certainly an auth wall.
+    const looksEmpty = !included.length || bodyStr.length < 2000;
+    const looksAuthWall = /authwall|login|unauthorized|not.*authenticated/i.test(bodyStr);
+    if (looksEmpty || looksAuthWall) {
+      throw new VoyagerError(401, "AUTHENTICATION_REQUIRED");
+    }
+    return null;
+  }
 
   const followers = extractFollowers(included, profileEntity);
   return { memberId, followers };
