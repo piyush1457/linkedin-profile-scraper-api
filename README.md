@@ -24,18 +24,133 @@ A publicly hosted HTTPS API that accepts a LinkedIn profile URL and returns stru
 
 ## Architecture
 
+### High-Level Flow
+
+```mermaid
+flowchart TD
+    Client["Client<br/>Browser / curl / Demo UI"]
+    API["Express App<br/>src/app.js"]
+    RateLimit["Rate Limiter<br/>10 req/min per IP<br/>src/middleware/rateLimit.js"]
+    URLVal["URL Validation<br/>linkedin.com/in/*<br/>src/utils/url.js"]
+    Timeout["Timeout Middleware<br/>src/middleware/timeout.js"]
+    Health{"GET /health ?"}
+    CacheCheck{"Cache Check<br/>TTL 3h<br/>src/services/cache.js"}
+    CacheHit["Cache HIT<br/>Return cached JSON<br/>cached: true"]
+    Queue["Concurrency Queue<br/>max 2 parallel scrapes<br/>src/services/profileService.js"]
+    Session["Session Manager<br/>Cookie Jar + CSRF<br/>JSESSIONID = csrf-token<br/>src/services/session.js"]
+    Voyager["Voyager Client<br/>Node fetch + auto cookie rotation<br/>src/services/voyagerClient.js"]
+    Resolve["Resolve Member ID<br/>GraphQL: voyagerIdentityDashProfiles<br/>vanityName -> memberId + followers"]
+    FullProfile["Fetch Full Profile<br/>/voyager/api/identity/dash/profiles<br/>3 decoration fallbacks 93/91/35"]
+    Sections["Fetch Sections<br/>positions / educations / skills<br/>certifications / languages<br/>120ms stagger"]
+    Parser["Parsers + Normalization<br/>extractEntities + normalizeSections<br/>src/parsers/networkProfile.js"]
+    Zod["Zod Schema Validation<br/>src/schemas/profile.js"]
+    ErrorMap["Error Classification<br/>401 AUTH / 403 CHALLENGE<br/>404 NOT_FOUND / 429 RATE_LIMITED / 502 SCRAPE_FAILED"]
+    Response["JSON Response<br/>success + profile + meta<br/>+ error"]
+
+    Client --> API
+    API --> Health
+    Health -- Yes --> Response
+    Health -- "No: /api/profile" --> RateLimit
+    RateLimit --> Timeout
+    Timeout --> URLVal
+    URLVal -- "Invalid" --> ErrorMap
+    URLVal -- "Valid + Normalized" --> CacheCheck
+    CacheCheck -- HIT --> CacheHit --> Response
+    CacheCheck -- MISS --> Queue
+    Queue --> Session
+    Session --> Voyager
+    Voyager --> Resolve
+    Resolve --> FullProfile
+    FullProfile --> Sections
+    Sections --> Parser
+    Parser --> Zod
+    Zod --> Response
+    Voyager -.->|401/403/404/429 + challenge HTML| ErrorMap
+    ErrorMap -.-> Response
+    Zod -.->|Cache Set on OK| CacheCheck
+
+    style Client fill:#0ea5e9,stroke:#0284c7,color:#fff
+    style Response fill:#22c55e,stroke:#16a34a,color:#fff
+    style CacheHit fill:#f59e0b,stroke:#d97706,color:#fff
+    style ErrorMap fill:#ef4444,stroke:#dc2626,color:#fff
+    style Voyager fill:#8b5cf6,stroke:#7c3aed,color:#fff
 ```
-Client → GET /api/profile?url=<linkedin-url>
-  → URL Validation
-  → Rate Limiter
-  → Cache Check
-    → HIT: Return cached
-    → MISS: Concurrency Limit → Direct HTTP requests
-      → resolve vanity name → linkedin member ID (GraphQL topcard)
-      → fetch full profile (RESTLI, 3 decoration fallbacks)
-      → fetch positions/educations/skills/certifications/languages
-      → Normalize (parseSelected entities) → Cache → Response
+
+> **Fallback (if mermaid fails to render):**
+> ```
+> Client → GET /api/profile?url=<linkedin-url>
+>   → Rate Limiter (10/min/IP) → Timeout → URL Validation
+>   → Cache Check (TTL 3h)
+>     → HIT: Return cached (meta.cached=true)
+>     → MISS: Concurrency Queue (max 2) → Session Manager (Cookie Jar + JSESSIONID csrf-token)
+>       → Voyager Client (Node fetch, auto Set-Cookie rotation, 30s timeout, 6-hop redirect)
+>         → Resolve vanityName → memberId [GraphQL topcard a1a483e719b20537...]
+>         → Fetch Full Profile [RESTLI dash/profiles, decorations 93→91→35]
+>         → Fetch 5 Sections [positions/educations/skills/certifications/languages, 120ms stagger]
+>       → Parsers: extractEntities + normalizeSections → Zod Validation → Cache Set → Response
+>       → Errors: 401 AUTHENTICATION_REQUIRED / 403 CHALLENGE_DETECTED / 404 PROFILE_NOT_FOUND / 429 RATE_LIMITED / 502 SCRAPE_FAILED
+> ```
+
+### Request Lifecycle — Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant E as Express (app.js)
+    participant RL as Rate Limiter
+    participant UV as URL Validator
+    participant CA as Cache (TTL 3h)
+    participant Q as Concurrency Queue<br/>(max 2)
+    participant S as Session Jar<br/>(session.js)
+    participant V as Voyager Client<br/>(voyagerClient.js)
+    participant L as LinkedIn Voyager API<br/>(voyager/api)
+
+    C->>E: GET /api/profile?url=https://linkedin.com/in/...
+    E->>RL: check IP window
+    RL-->>E: allow (or 429)
+    E->>UV: parse + validate hostname & /in/ path
+    UV-->>E: normalized URL
+    E->>CA: get(normalizedUrl)
+    alt Cache HIT
+        CA-->>C: 200 { success:true, meta.cached:true }
+    else Cache MISS
+        E->>Q: enqueueScrape(normalizedUrl)
+        Q->>S: getSession(storageState) → cookieHeader + csrfToken
+        S-->>Q: { valid: true, jar, viewerId }
+        Q->>V: resolveMemberId(vanityName)
+        V->>L: GET /voyager/api/graphql?queryId=a1a483...&vanityName=...
+        L-->>V: included[] + entityUrn:fsd_profile:XYZ + followers
+        V-->>Q: { memberId, followers }
+        Q->>V: fetchFullProfile(memberId) — try decos 93/91/35
+        V->>L: GET /voyager/api/identity/dash/profiles?memberIdentity=XYZ
+        L-->>V: FullProfileWithEntities JSON
+        Q->>V: fetchAllSections(memberId) — 5 calls staggered 120ms
+        V->>L: GET /identity/dash/profilePositions, profileEducations, ...
+        L-->>V: section JSONs
+        V-->>Q: { profilePositions, profileEducations, ... }
+        Q->>Q: parseProfile(extractEntities) + normalizeSections()
+        Q->>CA: set(normalizedUrl, response)
+        Q-->>C: 200 { success:true, profile:{...}, meta:{cached:false} }
+    end
+
+    Note over V,L: Voyager Client handles:<br/>• csrf-token: ajax:JSESSIONID<br/>• cookie auto-rotation via Set-Cookie<br/>• 30s abort timeout, 6-hop redirect<br/>• 200-HTML challenge/authwall detection
 ```
+
+### Component Map
+
+| Layer | File | Responsibility |
+|-------|------|---------------|
+| **HTTP** | `src/app.js`, `src/routes/profile.js`, `src/routes/health.js` | Express wiring, `trust proxy`, static Demo UI, routing |
+| **Middleware** | `src/middleware/rateLimit.js`, `timeout.js`, `errorHandler.js` | IP rate limit (10/min), request timeout, global errors |
+| **Validation** | `src/utils/url.js` | Strict `linkedin.com/in/` parsing, hostname spoof guard, URL normalization (cache key) |
+| **Cache** | `src/services/cache.js` | In-memory TTL (default 10800s / 3h), hit returns `cached:true` |
+| **Orchestrator** | `src/services/profileService.js`, `src/services/linkedin.js` | Concurrency queue (max 2), error → HTTP mapping, Voyager orchestration |
+| **Session** | `src/services/session.js` | `Cookie` header ↔ `storageState.json`, JSESSIONID↔CSRF, `createCookieJar` with `applySetCookieHeaders` live rotation |
+| **Voyager** | `src/services/voyagerClient.js` | `apiFetch` (fetch + 6 redirects + abort), `resolveMemberId` (GraphQL), `fetchFullProfile` (3 decorations), `fetchAllSections` (5 sections) |
+| **Parsers** | `src/parsers/networkProfile.js` | `extractEntities` + `parseProfile` + `normalizeSections` → unified schema |
+| **Schema** | `src/schemas/profile.js` | Zod runtime validation of public contract |
+
 
 ## Reverse Engineering Findings
 
