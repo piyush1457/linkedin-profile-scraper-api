@@ -76,67 +76,6 @@ flowchart TD
     style Voyager fill:#8b5cf6,stroke:#7c3aed,color:#fff
 ```
 
-> **Fallback (if mermaid fails to render):**
-> ```
-> Client → GET /api/profile?url=<linkedin-url>
->   → Rate Limiter (10/min/IP) → Timeout → URL Validation
->   → Cache Check (TTL 3h)
->     → HIT: Return cached (meta.cached=true)
->     → MISS: Concurrency Queue (max 2) → Session Manager (Cookie Jar + JSESSIONID csrf-token)
->       → Voyager Client (Node fetch, auto Set-Cookie rotation, 30s timeout, 6-hop redirect)
->         → Resolve vanityName → memberId [GraphQL topcard a1a483e719b20537...]
->         → Fetch Full Profile [RESTLI dash/profiles, decorations 93→91→35]
->         → Fetch 5 Sections [positions/educations/skills/certifications/languages, 120ms stagger]
->       → Parsers: extractEntities + normalizeSections → Zod Validation → Cache Set → Response
->       → Errors: 401 AUTHENTICATION_REQUIRED / 403 CHALLENGE_DETECTED / 404 PROFILE_NOT_FOUND / 429 RATE_LIMITED / 502 SCRAPE_FAILED
-> ```
-
-### Request Lifecycle — Sequence Diagram
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant C as Client
-    participant E as Express (app.js)
-    participant RL as Rate Limiter
-    participant UV as URL Validator
-    participant CA as Cache (TTL 3h)
-    participant Q as Concurrency Queue<br/>(max 2)
-    participant S as Session Jar<br/>(session.js)
-    participant V as Voyager Client<br/>(voyagerClient.js)
-    participant L as LinkedIn Voyager API<br/>(voyager/api)
-
-    C->>E: GET /api/profile?url=https://linkedin.com/in/...
-    E->>RL: check IP window
-    RL-->>E: allow (or 429)
-    E->>UV: parse + validate hostname & /in/ path
-    UV-->>E: normalized URL
-    E->>CA: get(normalizedUrl)
-    alt Cache HIT
-        CA-->>C: 200 { success:true, meta.cached:true }
-    else Cache MISS
-        E->>Q: enqueueScrape(normalizedUrl)
-        Q->>S: getSession(storageState) → cookieHeader + csrfToken
-        S-->>Q: { valid: true, jar, viewerId }
-        Q->>V: resolveMemberId(vanityName)
-        V->>L: GET /voyager/api/graphql?queryId=a1a483...&vanityName=...
-        L-->>V: included[] + entityUrn:fsd_profile:XYZ + followers
-        V-->>Q: { memberId, followers }
-        Q->>V: fetchFullProfile(memberId) — try decos 93/91/35
-        V->>L: GET /voyager/api/identity/dash/profiles?memberIdentity=XYZ
-        L-->>V: FullProfileWithEntities JSON
-        Q->>V: fetchAllSections(memberId) — 5 calls staggered 120ms
-        V->>L: GET /identity/dash/profilePositions, profileEducations, ...
-        L-->>V: section JSONs
-        V-->>Q: { profilePositions, profileEducations, ... }
-        Q->>Q: parseProfile(extractEntities) + normalizeSections()
-        Q->>CA: set(normalizedUrl, response)
-        Q-->>C: 200 { success:true, profile:{...}, meta:{cached:false} }
-    end
-
-    Note over V,L: Voyager Client handles:<br/>• csrf-token: ajax:JSESSIONID<br/>• cookie auto-rotation via Set-Cookie<br/>• 30s abort timeout, 6-hop redirect<br/>• 200-HTML challenge/authwall detection
-```
-
 ### Component Map
 
 | Layer | File | Responsibility |
